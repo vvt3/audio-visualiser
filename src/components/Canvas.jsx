@@ -19,7 +19,7 @@ export default function VisualizerCanvas() {
     window.addEventListener("resize", resize)
 
     function loop() {
-      t += 0.02
+      t += 0.05
 
       // clear
       ctx.fillStyle = "black"
@@ -41,11 +41,11 @@ export default function VisualizerCanvas() {
 
       ctx.stroke()
 
-      // moving "cart"
+      // cart
       const cartX = (t * 100) % canvas.width
       const cartY =
         canvas.height / 2 +
-        // Audio frequencies
+        // match audio frequencies
         Math.sin(cartX * 0.01 + t) * 50
 
       ctx.beginPath()
