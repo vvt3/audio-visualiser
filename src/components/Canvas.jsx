@@ -21,9 +21,11 @@ export default function VisualizerCanvas() {
     function loop() {
       t += 0.05
 
-      // clear
+      // clear bg
       ctx.fillStyle = "black"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      ctx.lineWidth = 8;
 
       // placeholder for the actual track
       ctx.beginPath()
