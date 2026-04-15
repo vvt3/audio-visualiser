@@ -1,14 +1,23 @@
 import { useEffect, useRef } from "react"
+import { createAudioAnalyser } from "../engine/audio.js"
 
-export default function VisualizerCanvas() {
+export default function Canvas({audioFile}) {
   const canvasRef = useRef(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    if (!audioFile) return
+    console.log("Canvas received file:", audioFile)
 
     let animationId
-    let t = 0
+    let analyserObj
+
+    async function init() {
+      analyserObj = await createAudioAnalyser(audioFile)
+      loop()
+    }
+
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
 
     function resize() {
       canvas.width = window.innerWidth
@@ -19,52 +28,33 @@ export default function VisualizerCanvas() {
     window.addEventListener("resize", resize)
 
     function loop() {
-      t += 0.05
+      if (!analyserObj) return
+
+      const data = analyserObj.getFrequencyData()
 
       // clear bg
       ctx.fillStyle = "black"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      ctx.lineWidth = 8;
+      // bars simple
+      const barWidth = canvas.width / data.length
 
-      // placeholder for the actual track
-      ctx.beginPath()
-      ctx.strokeStyle = "white"
-
-      for (let x = 0; x < canvas.width; x++) {
-        const y =
-          canvas.height / 2 +
-          // Audio frequencies
-          Math.sin(x * 0.01 + t) * 50
-
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-
-      ctx.stroke()
-
-      // cart
-      const cartX = (t * 100) % canvas.width
-      const cartY =
-        canvas.height / 2 +
-        // match audio frequencies
-        Math.sin(cartX * 0.01 + t) * 50
-
-      ctx.beginPath()
-      ctx.arc(cartX, cartY, 6, 0, Math.PI * 2)
-      ctx.fillStyle = "red"
-      ctx.fill()
+      data.forEach((value, i) => {
+        const height = value
+        ctx.fillStyle = "white"
+        ctx.fillRect(i * barWidth, canvas.height - height, barWidth, height)
+      })
 
       animationId = requestAnimationFrame(loop)
     }
 
-    loop()
+    init()
 
     return () => {
       cancelAnimationFrame(animationId)
       window.removeEventListener("resize", resize)
     }
-  }, [])
+  }, [audioFile])
 
-  return <canvas ref={canvasRef} />
+  return <canvas ref={canvasRef} className="w-full h-full block" />
 }

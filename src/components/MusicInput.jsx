@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function MusicInput() {
+export default function MusicInput({ onFileSelect }) {
     const [file, setFile] = useState(null);
 
     const handleFileChange = (e) => {
@@ -8,39 +8,28 @@ export default function MusicInput() {
     };
 
     const handleUpload = () => {
-        if (!file) {
-            console.log("No song");
-            return
-        }
+        if (!file) return
 
-        const url = URL.createObjectURL(file)
-        console.log("Loaded:", url)
-        // if (file) {
-        //     console.log('Uploading:', file.name);
-        //     setFile(file);
-        //     // do the upload
-        // }
-    };
+        onFileSelect(file)
+        console.log(file.name);
+    }
 
     return (
-        <div class="flex flex-col items-center gap-3 p-4">
-            {file &&
-            <span className="text-sm text-gray-400">
-                {file.name}
-            </span>
-            }
+        <div className="flex flex-col items-center gap-3 p-4">
             <label className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer">
                 Select Audio
                 <input
                     type="file"
                     accept="audio/*"
                     className="hidden"
-                    onChange={(e) => setFile(e.target.files[0])}
+                    onChange={handleFileChange}
                 />
             </label>
 
+            {file && <span className="text-sm">{file.name}</span>}
+
             <button onClick={handleUpload} className="px-4 py-2 bg-blue-500 text-white rounded cursor-pointer">
-                Add to Queue
+                Add
             </button>
         </div>
     );

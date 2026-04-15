@@ -1,7 +1,9 @@
-import VisualizerCanvas from "./components/Canvas"
+import Canvas from "./components/Canvas"
 import MusicInput from "./components/MusicInput"
+import { useState } from "react"
 
 function App() {
+  const [audioFile, setAudioFile] = useState(null)
   return (
      <div className="h-screen w-screen flex flex-col bg-zinc-600 text-white">
 
@@ -15,10 +17,10 @@ function App() {
       {/* Main Canvas */}
       <main className="flex-1 flex flex-col items-center justify-center overflow-hidden">
         <div>
-          <MusicInput />
+          <MusicInput onFileSelect={setAudioFile}/>
         </div>
         <div className="w-[90%] max-w-6xl h-[90%] bg-black border border-gray-800 rounded-xl overflow-hidden">
-          <VisualizerCanvas />
+          <Canvas audioFile={audioFile} />
         </div>
       </main>
 
