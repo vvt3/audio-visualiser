@@ -80,9 +80,9 @@ Engine (Vanilla JS)
 
 ## Screenshots
 
-> <p align="center">
-> <img src="assets/screenshots/demo.png" width="600" />
-> </p>
+<p align="center">
+<img src="assets/screenshots/demo.png" width="600" />
+</p>
 
 ---
 
@@ -139,9 +139,9 @@ This is simply fun to see it work
 
 In active development
 
-> <p align="center">
-> <img src="assets/screenshots/todo.png" width="600" />
-> </p>
+<p align="center">
+<img src="assets/screenshots/todo.png" width="600" />
+</p>
 
 ---
 
