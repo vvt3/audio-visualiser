@@ -1,18 +1,30 @@
 import { useEffect, useRef } from "react"
 import { createAudioAnalyser } from "../engine/audio.js"
 
-export default function Canvas({audioFile}) {
+export default function Canvas({ audioFile, volume }) {
   const canvasRef = useRef(null)
+  const analyserRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     if (!audioFile) return
-    console.log("Canvas received file:", audioFile)
 
     let animationId
     let analyserObj
 
     async function init() {
+
+      if (audioRef.current) {
+        try { audioRef.current.source.stop() } catch {}
+        try { audioRef.current.audioCtx.close() } catch {}
+      }
+
       analyserObj = await createAudioAnalyser(audioFile)
+      analyserRef.current = analyserObj
+      audioRef.current = analyserObj
+
+      await analyserObj.audioCtx.resume()
+
       loop()
     }
 
@@ -28,21 +40,27 @@ export default function Canvas({audioFile}) {
     window.addEventListener("resize", resize)
 
     function loop() {
-      if (!analyserObj) return
-
-      const data = analyserObj.getFrequencyData()
+      const analyser = analyserRef.current
+      if (!analyser) {
+        animationId = requestAnimationFrame(loop)
+        return
+      }
+      const data = analyser.getFrequencyData()
 
       // clear bg
       ctx.fillStyle = "black"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // bars simple
-      const barWidth = canvas.width / data.length
+      // bars
+      ctx.fillStyle = "white"
+      const gap = 1
+      const barWidth = (canvas.width - data.length * gap) / data.length
 
       data.forEach((value, i) => {
+        const x = i * (barWidth + gap)
         const height = value
-        ctx.fillStyle = "white"
-        ctx.fillRect(i * barWidth, canvas.height - height, barWidth, height)
+
+        ctx.fillRect(x, canvas.height - height, barWidth, height)
       })
 
       animationId = requestAnimationFrame(loop)
@@ -55,6 +73,13 @@ export default function Canvas({audioFile}) {
       window.removeEventListener("resize", resize)
     }
   }, [audioFile])
+
+  // Volume adjust
+  useEffect(() => {
+    if (analyserRef.current?.gainNode) {
+      analyserRef.current.gainNode.gain.value = volume
+    }
+  }, [volume])
 
   return <canvas ref={canvasRef} className="w-full h-full block" />
 }

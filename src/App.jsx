@@ -4,6 +4,8 @@ import { useState } from "react"
 
 function App() {
   const [audioFile, setAudioFile] = useState(null)
+  const [volume, setVolume] = useState(0.5)
+
   return (
      <div className="h-screen w-screen flex flex-col bg-zinc-600 text-white">
 
@@ -20,7 +22,7 @@ function App() {
           <MusicInput onFileSelect={setAudioFile}/>
         </div>
         <div className="w-[90%] max-w-6xl h-[90%] bg-black border border-gray-800 rounded-xl overflow-hidden">
-          <Canvas audioFile={audioFile} />
+          <Canvas audioFile={audioFile} volume={volume} />
         </div>
       </main>
 
@@ -32,8 +34,18 @@ function App() {
         <button className="px-4 py-2 bg-blue-500 rounded">
           ❚❚
         </button>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={volume}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setVolume(v)
+          }}
+        />
       </footer>
-      
     </div>
   )
 }

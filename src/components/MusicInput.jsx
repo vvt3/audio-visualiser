@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createAudioAnalyser } from '../engine/audio'
 
 export default function MusicInput({ onFileSelect }) {
     const [file, setFile] = useState(null);
@@ -7,11 +8,14 @@ export default function MusicInput({ onFileSelect }) {
         setFile(e.target.files[0]);
     };
 
-    const handleUpload = () => {
+    const handleUpload = async () => {
         if (!file) return
 
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        await ctx.resume()
+        await ctx.close()
+
         onFileSelect(file)
-        console.log(file.name);
     }
 
     return (
