@@ -82,7 +82,6 @@ Engine (Vanilla JS)
 
 <p align="center">
 <img src="./assets/screenshots/demo.png" width="600" />
-![Demo](assets/screenshots/demo.png)
 </p>
 
 ---
