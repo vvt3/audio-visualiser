@@ -1,4 +1,4 @@
-# 🎢 Music Rollercoaster Visualizer
+# 🎢 Musical Rollercoaster Visualiser
 
 A browser-based audio visualizer that analyzes uploaded music and generates a procedural rollercoaster track in real time.
 

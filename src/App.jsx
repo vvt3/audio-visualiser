@@ -1,10 +1,44 @@
 import Canvas from "./components/Canvas"
 import MusicInput from "./components/MusicInput"
-import { useState } from "react"
+import { useState, useEffect} from "react"
+import { createAudioEngine } from "./engine/audio"
 
 function App() {
-  const [audioFile, setAudioFile] = useState(null)
-  const [volume, setVolume] = useState(0.5)
+  const [audioEngine, setAudioEngine] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [file, setFile] = useState(null)
+  const [volume, setVolume] = useState(1)
+
+  const handleFileSelect = async (file) => {
+    // Destroy engine if it exsists
+    if (audioEngine) {
+      audioEngine.destroy()
+    }
+    // create new
+    const engine = await createAudioEngine(file)
+    setAudioEngine(engine)
+    setFile(file)
+    setIsPlaying(false)
+  }
+
+  // Volume control
+  useEffect(() => {
+    audioEngine?.setVolume?.(volume)
+  }, [volume, audioEngine])
+
+  // Play pause
+  const handleToggle = async () => {
+    if (!audioEngine) return
+
+    // toggle behavior
+    if (isPlaying) {
+      audioEngine.pause()
+      setIsPlaying(false)
+    } else {
+      audioEngine.play()
+      setIsPlaying(true)
+    }
+  }
 
   return (
      <div className="h-screen w-screen flex flex-col bg-zinc-600 text-white">
@@ -18,33 +52,49 @@ function App() {
 
       {/* Main Canvas */}
       <main className="flex-1 flex flex-col items-center justify-center overflow-hidden">
-        <div>
-          <MusicInput onFileSelect={setAudioFile}/>
+
+        <MusicInput onFileSelect={handleFileSelect} />
+
+        <div className="w-[90%] max-w-4xl h-[90%] bg-black border border-gray-800 rounded-xl overflow-hidden">
+          <p className="text-sm">{file ? file.name : ""}</p>
+          <Canvas audioEngine={audioEngine} volume={volume} />
         </div>
-        <div className="w-[90%] max-w-6xl h-[90%] bg-black border border-gray-800 rounded-xl overflow-hidden">
-          <Canvas audioFile={audioFile} volume={volume} />
+
+        {/* Controls */}
+        <div className="flex flex-row gap-4 mt-4">
+            <button
+              className="px-4 py-2 bg-blue-600 rounded-full hover:bg-blue-500"
+              onClick={() => {
+                if (!audioEngine) return
+
+                audioEngine.restart()
+                setIsPlaying(true)
+              }}
+            >
+              ↺
+            </button>
+            <button
+              className="px-4 py-2 bg-blue-600 rounded-full hover:bg-blue-500"
+              onClick={handleToggle}
+            >
+              {isPlaying ? "❚❚" : "▶︎"}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setVolume(v)
+              }}
+            />
         </div>
       </main>
 
       {/* Footer */}
       <footer className="h-16 flex items-center justify-center gap-2 border-t border-gray-800 bg-zinc-600">
-        <button className="px-4 py-2 bg-blue-500 rounded">
-          ▶︎
-        </button>
-        <button className="px-4 py-2 bg-blue-500 rounded">
-          ❚❚
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            setVolume(v)
-          }}
-        />
       </footer>
     </div>
   )

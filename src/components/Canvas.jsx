@@ -1,36 +1,14 @@
 import { useEffect, useRef } from "react"
-import { createAudioAnalyser } from "../engine/audio.js"
 
-export default function Canvas({ audioFile, volume }) {
+export default function Canvas({ audioEngine, volume }) {
+
   const canvasRef = useRef(null)
-  const analyserRef = useRef(null)
-  const audioRef = useRef(null)
   const smoothDataRef = useRef(null)
-
-
+  const analyser = audioEngine?.analyser
   const BAR_SCALE = 0.85
 
   useEffect(() => {
-    if (!audioFile) return
-
     let animationId
-    let analyserObj
-
-    async function init() {
-
-      if (audioRef.current) {
-        try { audioRef.current.source.stop() } catch {}
-        try { audioRef.current.audioCtx.close() } catch {}
-      }
-
-      analyserObj = await createAudioAnalyser(audioFile)
-      analyserRef.current = analyserObj
-      audioRef.current = analyserObj
-
-      await analyserObj.audioCtx.resume()
-
-      loop()
-    }
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
@@ -49,17 +27,25 @@ export default function Canvas({ audioFile, volume }) {
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
-
+    
     resize()
     window.addEventListener("resize", resize)
 
     function loop() {
-      const analyser = analyserRef.current
-      if (!analyser) {
+      const analyser = audioEngine?.analyser
+
+      if (!audioEngine || !analyser) {
         animationId = requestAnimationFrame(loop)
         return
       }
-      const data = analyser.getFrequencyData()
+
+      const data = audioEngine?.getFrequencyData?.()
+
+      if (!data) {
+        animationId = requestAnimationFrame(loop)
+        return
+      }
+
       if (!smoothDataRef.current) {
         smoothDataRef.current = new Float32Array(data.length)
       }
@@ -78,24 +64,14 @@ export default function Canvas({ audioFile, volume }) {
 
       const gap = 1
       const barWidth = (width - data.length * gap) / data.length
-
-
-       if (!smoothDataRef.current) {
-        smoothDataRef.current = new Float32Array(data.length)
-      }
-
       const smoothData = smoothDataRef.current
       
       data.forEach((value, i) => {
-        const x = i * (barWidth + gap)
-        //const height = value * BAR_SCALE
-        //const height = (value / 255) * heightCanvas * BAR_SCALE
-        // smoothing (lerp)
         smoothData[i] = smoothData[i] * 0.8 + value * 0.2
-        const avg = (data[i] + data[i-1] + data[i+1]) / 3
-        //const normalized = value / 255
+
         const normalized = smoothData[i] / 255
         const height = Math.pow(normalized, 0.5) * heightCanvas * BAR_SCALE
+        const x = i * (barWidth + gap)
         const y = heightCanvas - height
 
         ctx.fillRect(x, y, barWidth, height)
@@ -106,20 +82,20 @@ export default function Canvas({ audioFile, volume }) {
       animationId = requestAnimationFrame(loop)
     }
 
-    init()
+    loop()
 
     return () => {
       cancelAnimationFrame(animationId)
       window.removeEventListener("resize", resize)
     }
-  }, [audioFile])
+  }, [audioEngine])
 
-  // Volume adjust
+  // Volume handling (TEMP)
   useEffect(() => {
-    if (analyserRef.current?.gainNode) {
-      analyserRef.current.gainNode.gain.value = volume
+    if (audioEngine?.gainNode) {
+      audioEngine.gainNode.gain.value = volume
     }
-  }, [volume])
+  }, [volume, audioEngine])
 
   return <canvas ref={canvasRef} className="w-full h-full block" />
 }
