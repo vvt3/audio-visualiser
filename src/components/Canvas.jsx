@@ -7,6 +7,7 @@ export default function Canvas({ audioEngine, controls }) {
   const tiltRef = useRef(0);
   const speedRef = useRef(0);
   const smoothSpeedRef = useRef(0);
+  const particlesRef = useRef([]);
 
   // CONTROLS
   const BASELINE_OFFSET = controls.baseline * 25;
@@ -96,7 +97,7 @@ export default function Canvas({ audioEngine, controls }) {
 
         // RIGHT
         for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
-          history[i] = history[i - 1];
+          history[i] = history[i + 1];
         }
 
         speedRef.current -= 1;
@@ -204,6 +205,55 @@ export default function Canvas({ audioEngine, controls }) {
       animationId = requestAnimationFrame(loop);
     }
 
+    function spawnParticles(cart, speed, normalized) {
+      const particles = particlesRef.current;
+
+      const count = Math.floor(speed * 2);
+
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: cart.x,
+          y: cart.y,
+          vx: -Math.random() * 2 - 1,
+          vy: (Math.random() - 0.5) * 2,
+          //vy: (Math.random() - 0.5) * 2 - slope * 3,
+          life: 1,
+          size: 2 + Math.random() * 0.5,
+        });
+      }
+    }
+
+    function updateParticles() {
+      const particles = particlesRef.current;
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        p.life -= 0.02;
+      }
+
+      // remove dead
+      particlesRef.current = particles.filter((p) => p.life > 0);
+    }
+
+    function drawParticles(ctx) {
+      const particles = particlesRef.current;
+
+      particles.forEach((p) => {
+        ctx.globalAlpha = p.life;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+      });
+
+      ctx.globalAlpha = 1;
+    }
+
     // ---------------- LOOP ----------------
 
     function loop() {
@@ -225,9 +275,14 @@ export default function Canvas({ audioEngine, controls }) {
       const track = updateTrack(audio.heightValue);
       const cart = computeCart(track, dims);
 
+      spawnParticles(cart, smoothSpeedRef.current, audio.normalized);
+
       drawBackground(ctx, dims);
       drawTrack(ctx, track, dims, audio.normalized);
       drawCart(ctx, cart, audio.normalized);
+
+      updateParticles();
+      drawParticles(ctx);
 
       nextFrame();
     }
