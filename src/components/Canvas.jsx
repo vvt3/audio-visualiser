@@ -1,101 +1,139 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef } from "react";
 
 export default function Canvas({ audioEngine, volume }) {
-
-  const canvasRef = useRef(null)
-  const smoothDataRef = useRef(null)
-  const analyser = audioEngine?.analyser
-  const BAR_SCALE = 0.85
+  const canvasRef = useRef(null);
+  const smoothDataRef = useRef(null);
+  const analyser = audioEngine?.analyser;
+  const BAR_SCALE = 0.85;
+  const historyRef = useRef([]);
+  const MAX_POINTS = 200;
 
   useEffect(() => {
-    let animationId
+    let animationId;
 
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
 
     function resize() {
-      const dpr = window.devicePixelRatio || 1
+      const dpr = window.devicePixelRatio || 1;
 
-      const width = window.innerWidth
-      const height = window.innerHeight
+      const rect = canvas.getBoundingClientRect();
 
-      canvas.width = width * dpr
-      canvas.height = height * dpr
+      const width = rect.width;
+      const height = rect.height;
 
-      canvas.style.width = width + "px"
-      canvas.style.height = height + "px"
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
 
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    
-    resize()
-    window.addEventListener("resize", resize)
+
+    resize();
+    window.addEventListener("resize", resize);
 
     function loop() {
-      const analyser = audioEngine?.analyser
+      const analyser = audioEngine?.analyser;
 
       if (!audioEngine || !analyser) {
-        animationId = requestAnimationFrame(loop)
-        return
+        animationId = requestAnimationFrame(loop);
+        return;
       }
 
-      const data = audioEngine?.getFrequencyData?.()
+      const data = audioEngine?.getFrequencyData?.();
 
       if (!data) {
-        animationId = requestAnimationFrame(loop)
-        return
+        animationId = requestAnimationFrame(loop);
+        return;
       }
 
       if (!smoothDataRef.current) {
-        smoothDataRef.current = new Float32Array(data.length)
+        smoothDataRef.current = new Float32Array(data.length);
       }
 
-      //------------ Drawing BLOCK
+      //------------ Rollercoaster DRAW
 
-      const width = canvas.clientWidth
-      const heightCanvas = canvas.clientHeight
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const heightCanvas = canvas.height / (window.devicePixelRatio || 1);
 
-      // clear bg
-      ctx.fillStyle = "black"
-      ctx.fillRect(0, 0, width, heightCanvas)
+      // clear
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, width, heightCanvas);
 
-      // bars
-      ctx.fillStyle = "white"
+      // get data
+      const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
 
-      const gap = 1
-      const barWidth = (width - data.length * gap) / data.length
-      const smoothData = smoothDataRef.current
-      
-      data.forEach((value, i) => {
-        smoothData[i] = smoothData[i] * 0.8 + value * 0.2
+      // normalize + shape
+      const normalized = avg / 255;
+      const heightValue = Math.pow(normalized, 0.3);
 
-        const normalized = smoothData[i] / 255
-        const height = Math.pow(normalized, 0.5) * heightCanvas * BAR_SCALE
-        const x = i * (barWidth + gap)
-        const y = heightCanvas - height
+      if (historyRef.current.length === 0) {
+        historyRef.current = new Array(MAX_POINTS).fill(heightValue);
+      }
 
-        ctx.fillRect(x, y, barWidth, height)
-      })
+      // push into history
+      const history = historyRef.current;
 
-      //------------ END Draw BLOCK
+      const last = history[history.length - 1] ?? heightValue;
+      const blended = last * 0.7 + heightValue * 0.3;
 
-      animationId = requestAnimationFrame(loop)
+      history.shift();
+      history.push(blended);
+
+      // cart calulation
+      const centerIndex = Math.floor(history.length / 2);
+      const centerValue = history[centerIndex];
+
+      const cartX =
+        ((centerIndex - centerIndex) / (MAX_POINTS / 2)) * (width / 2) +
+        width / 2;
+
+      const baseline = heightCanvas / 2;
+      const amplitude = centerValue * heightCanvas * 0.3;
+      const cartY = baseline - amplitude;
+
+      // draw line
+      ctx.beginPath();
+
+      history.forEach((v, i) => {
+        const x =
+          ((i - centerIndex) / (MAX_POINTS / 2)) * (width / 2) + width / 2;
+
+        const baseline = heightCanvas / 2;
+        const amplitude = v * heightCanvas * 0.3; // control intensity
+        const y = baseline - amplitude;
+
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+
+      // style
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw Cart
+      // 4. 🔴 DRAW CART AFTER LINE
+      ctx.beginPath();
+      ctx.arc(cartX, cartY, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "red";
+      ctx.fill();
+
+      animationId = requestAnimationFrame(loop);
     }
 
-    loop()
+    loop();
 
     return () => {
-      cancelAnimationFrame(animationId)
-      window.removeEventListener("resize", resize)
-    }
-  }, [audioEngine])
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", resize);
+    };
+  }, [audioEngine]);
 
-  // Volume handling (TEMP)
-  useEffect(() => {
-    if (audioEngine?.gainNode) {
-      audioEngine.gainNode.gain.value = volume
-    }
-  }, [volume, audioEngine])
-
-  return <canvas ref={canvasRef} className="w-full h-full block" />
+  return <canvas ref={canvasRef} className="w-full h-full block" />;
 }
