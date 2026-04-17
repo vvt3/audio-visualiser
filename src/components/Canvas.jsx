@@ -2,14 +2,13 @@ import { useEffect, useRef } from "react";
 
 export default function Canvas({ audioEngine, controls }) {
   const canvasRef = useRef(null);
-  const smoothDataRef = useRef(null);
-  const analyser = audioEngine?.analyser;
+
   const historyRef = useRef([]);
   const tiltRef = useRef(0);
   const speedRef = useRef(0);
   const smoothSpeedRef = useRef(0);
 
-  // CONTROLS:
+  // CONTROLS
   const BASELINE_OFFSET = controls.baseline * 25;
   const MAX_POINTS = 200;
   const SHAPE_EXPONENT = controls.shape;
@@ -26,19 +25,16 @@ export default function Canvas({ audioEngine, controls }) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
+    // ---------------- RESIZE ----------------
     function resize() {
       const dpr = window.devicePixelRatio || 1;
-
       const rect = canvas.getBoundingClientRect();
 
-      const width = rect.width;
-      const height = rect.height;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
 
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-
-      canvas.style.width = width + "px";
-      canvas.style.height = height + "px";
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
@@ -46,48 +42,41 @@ export default function Canvas({ audioEngine, controls }) {
     resize();
     window.addEventListener("resize", resize);
 
-    function loop() {
-      const analyser = audioEngine?.analyser;
+    // ---------------- HELPERS ----------------
 
-      if (!audioEngine || !analyser) {
-        animationId = requestAnimationFrame(loop);
-        return;
-      }
+    function getDimensions() {
+      const dpr = window.devicePixelRatio || 1;
+      return {
+        width: canvas.width / dpr,
+        height: canvas.height / dpr,
+      };
+    }
 
-      const data = audioEngine?.getFrequencyData?.();
-
-      if (!data) {
-        animationId = requestAnimationFrame(loop);
-        return;
-      }
-
-      if (!smoothDataRef.current) {
-        smoothDataRef.current = new Float32Array(data.length);
-      }
-
-      //------------ Rollercoaster DRAW
-
-      const width = canvas.width / (window.devicePixelRatio || 1);
-      const heightCanvas = canvas.height / (window.devicePixelRatio || 1);
-
-      // clear
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, width, heightCanvas);
-
+    function processAudio(data) {
       const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
-
       const normalized = avg / 255;
+
+      const shaped = Math.pow(normalized, SHAPE_EXPONENT);
+      const heightValue = shaped * 1.5;
+
+      return { normalized, heightValue };
+    }
+
+    function updateMotion(normalized) {
       const targetSpeed = MIN_SPEED + normalized * (MAX_SPEED - MIN_SPEED);
+
       smoothSpeedRef.current =
         smoothSpeedRef.current * (1 - SPEED_SMOOTHING) +
         targetSpeed * SPEED_SMOOTHING;
 
       const speed = smoothSpeedRef.current;
-      // shape curve
-      const shaped = Math.pow(normalized, SHAPE_EXPONENT);
-      // boost signal
-      const heightValue = shaped * 1.5; // TODO ADD BOOST CONTROL LATER
 
+      speedRef.current += speed;
+
+      return { speed };
+    }
+
+    function updateTrack(heightValue) {
       if (historyRef.current.length === 0) {
         historyRef.current = new Array(MAX_POINTS).fill(heightValue);
       }
@@ -95,117 +84,154 @@ export default function Canvas({ audioEngine, controls }) {
       const history = historyRef.current;
       const centerIndex = Math.floor(MAX_POINTS / 2);
 
-      // use CENTER as previous value
       const last = history[centerIndex] ?? heightValue;
-      // smooth toward new audio value
       const blended = last * (1 - SMOOTHING) + heightValue * SMOOTHING;
 
-      // Track movement by speed
-      speedRef.current += speed;
-
+      // movement
       while (speedRef.current >= 1) {
-        // LEFT side moves left
+        // LEFT
         for (let i = 0; i < centerIndex; i++) {
-          history[i] = history[i + 1];
+          //history[i] = history[i + 1];
+          history[i] = 1 / history[i + 1];
         }
 
-        // // RIGHT side moves right
-        // for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
-        //   history[i] = history[i - 1];
-        // }
+        // RIGHT
+        for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
+          //history[i] = history[i - 1];
+          history[i] = history[i + 1]; // Offscreen
+        }
 
         speedRef.current -= 1;
       }
-      // // shift LEFT side
-      // for (let i = 0; i < centerIndex; i++) {
-      //   history[i] = history[i + 1];
-      // }
 
-      // // // shift RIGHT side (future moves right)
-      // // for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
-      // //   history[i] = history[i - 1];
-      // // }
-
-      // inject NEW data at center
+      // inject at center
       history[centerIndex] = blended;
 
-      // read center
+      return { history, centerIndex, blended };
+    }
+
+    function computeCart(track, dims) {
+      const { history, centerIndex } = track;
+      const { width, height } = dims;
+
       const centerValue = history[centerIndex];
 
-      // Cart angling
       const left = history[centerIndex - 1] ?? centerValue;
       const right = history[centerIndex + 1] ?? centerValue;
-      const slope = right - left;
 
-      const dx = 2;
       const dy = right - left;
+      const dx = 2;
 
       const targetAngle = -Math.atan2(dy, dx) * 0.6;
-      const SMOOTH_TILT = 0.1; // tweak this
+
+      const SMOOTH_TILT = 0.1;
       const TILT_MULTIPLIER = 1.2;
 
       tiltRef.current =
         tiltRef.current * (1 - SMOOTH_TILT) +
         targetAngle * SMOOTH_TILT * TILT_MULTIPLIER;
 
-      const angle = tiltRef.current;
+      const baseline = height / 2 + BASELINE_OFFSET;
+      const amplitude = centerValue * height * AMPLITUDE;
 
-      const baseline = heightCanvas / 2 + BASELINE_OFFSET;
-      const amplitude = centerValue * heightCanvas * AMPLITUDE;
+      return {
+        x: width / 2,
+        y: baseline - amplitude,
+        angle: tiltRef.current,
+        value: centerValue,
+      };
+    }
 
-      const cartX = width / 2;
-      const cartY = baseline - amplitude;
+    function drawBackground(ctx, dims) {
+      const { width, height } = dims;
 
-      // ------------------Draw line
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    function drawTrack(ctx, track, dims, normalized) {
+      const { history, centerIndex } = track;
+      const { width, height } = dims;
+
+      const baseline = height / 2 + BASELINE_OFFSET;
 
       ctx.beginPath();
 
-      // Point - Point Transformation
       history.forEach((v, i) => {
         const x =
           ((i - centerIndex) / (MAX_POINTS / 2)) * (width / 2) + width / 2;
 
-        //const baseline = heightCanvas / 2;
-        const amplitude = v * heightCanvas * AMPLITUDE;
+        const amplitude = v * height * AMPLITUDE;
         const y = baseline - amplitude;
 
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
 
-      // Bezier Curve Transformation
+      const hue = 200 + normalized * 120;
+      const brightness = 50 + normalized * 30;
 
-      // style the line
-      ctx.strokeStyle = "white";
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `hsl(${hue}, 100%, ${brightness}%)`;
+      ctx.lineWidth = 5 * normalized;
+
+      ctx.shadowBlur = 10 + normalized * 30;
+      ctx.shadowColor = ctx.strokeStyle;
+
       ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
-      // -------------- Draw Cart
-      // ctx.beginPath();
-      // ctx.arc(cartX, cartY, 8, 0, Math.PI * 2);
-      // ctx.fillStyle = "red";
-      // ctx.fill();
+    function drawCart(ctx, cart, normalized) {
+      const { x, y, angle } = cart;
+
+      const pulse = 1 + normalized * 0.3;
+
       ctx.save();
-
-      ctx.translate(cartX, cartY);
+      ctx.translate(x, y);
       ctx.rotate(angle);
-      // triangle pointing right
-      ctx.beginPath();
-      ctx.moveTo(10, 0); // front
-      ctx.lineTo(-8, -6); // back top
-      ctx.lineTo(-8, 6); // back bottom
 
+      ctx.beginPath();
+      ctx.moveTo(10 * pulse, 0);
+      ctx.lineTo(-8 * pulse, -6 * pulse);
+      ctx.lineTo(-8 * pulse, 6 * pulse);
       ctx.closePath();
 
       ctx.fillStyle = "red";
       ctx.fill();
 
       ctx.restore();
+    }
 
+    function nextFrame() {
       animationId = requestAnimationFrame(loop);
+    }
+
+    // ---------------- LOOP ----------------
+
+    function loop() {
+      const analyser = audioEngine?.analyser;
+
+      if (!audioEngine || !analyser) {
+        return nextFrame();
+      }
+
+      const data = audioEngine.getFrequencyData();
+      if (!data) {
+        return nextFrame();
+      }
+
+      const dims = getDimensions();
+
+      const audio = processAudio(data);
+      const motion = updateMotion(audio.normalized);
+      const track = updateTrack(audio.heightValue);
+      const cart = computeCart(track, dims);
+
+      drawBackground(ctx, dims);
+      drawTrack(ctx, track, dims, audio.normalized);
+      drawCart(ctx, cart, audio.normalized);
+
+      nextFrame();
     }
 
     loop();

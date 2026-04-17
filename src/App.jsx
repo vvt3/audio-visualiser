@@ -12,7 +12,7 @@ function App() {
     smoothing: 0.2,
     shape: 0.3,
     amplitude: 0.3,
-    baseline: 0,
+    baseline: 4,
   });
 
   const handleFileSelect = async (file) => {
