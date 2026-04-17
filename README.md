@@ -61,7 +61,6 @@ Engine (Vanilla JS)
 
 - File upload (MP3/audio)
 - Real-time canvas rendering loop
-- Procedural sine wave-based track
 - Moving “cart” along generated path
 - Responsive layout with header / controls
 
@@ -69,12 +68,10 @@ Engine (Vanilla JS)
 
 ## Planned Features
 
-- Audio-driven track generation (replace sine wave)
 - Frequency-based terrain (bass = drops, highs = twists)
 - Camera movement / perspective (3D)
 - Track smoothing & physics tuning
 - Queue system for multiple songs
-- Play/pause controls
 
 ---
 
@@ -105,6 +102,7 @@ src/
 │   ├── Canvas.jsx
 │   └── MusicInput.jsx
 ├── engine/
+│   └── audio.js
 ├── App.jsx
 └── main.jsx
 ```
@@ -131,7 +129,7 @@ This project demonstrates:
 - performance awareness
 - deeper understanding of JavaScript beyond frameworks
 
-This is simply fun to see it work
+This is simply fun project to see it work
 
 ---
 
