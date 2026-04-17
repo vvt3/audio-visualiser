@@ -107,10 +107,11 @@ export async function createAudioEngine(file) {
     }
 
     pauseTime = 0;
+    startTime = 0;
     isPlaying = false;
     currentSource = null;
 
-    play(); // start fresh from 0
+    //play(); // start fresh from 0
   };
 
   return {

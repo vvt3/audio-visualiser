@@ -1,12 +1,26 @@
 import { useEffect, useRef } from "react";
 
-export default function Canvas({ audioEngine, volume }) {
+export default function Canvas({ audioEngine, controls }) {
   const canvasRef = useRef(null);
   const smoothDataRef = useRef(null);
   const analyser = audioEngine?.analyser;
-  const BAR_SCALE = 0.85;
   const historyRef = useRef([]);
-  const MAX_POINTS = 200;
+
+  // CONTROLS:
+  const BASELINE_OFFSET = controls.baseline * 25;
+  const MAX_POINTS = 200; // TODO expose VERY CAREFULLY
+
+  // LOW (0.2–0.4) = exaggerates quiet sounds (music)
+  // HIGH (1.0+) = more realistic
+  const SHAPE_EXPONENT = controls.shape;
+
+  // LOW (0.05) = slow, floaty hills
+  // HIGH (0.5) = twitchy, jittery
+  const SMOOTHING = controls.smoothing; // 0 - 1
+
+  // LOW = flat track
+  // HIGH = harsher peaks
+  const AMPLITUDE = controls.amplitude;
 
   useEffect(() => {
     let animationId;
@@ -62,36 +76,46 @@ export default function Canvas({ audioEngine, volume }) {
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, width, heightCanvas);
 
-      // get data
       const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
 
-      // normalize + shape
       const normalized = avg / 255;
-      const heightValue = Math.pow(normalized, 0.3);
+      // shape curve
+      const shaped = Math.pow(normalized, SHAPE_EXPONENT);
+      // boost signal
+      const heightValue = shaped * 1.5; // TODO ADD BOOST CONTROL LATER
 
       if (historyRef.current.length === 0) {
         historyRef.current = new Array(MAX_POINTS).fill(heightValue);
       }
 
-      // push into history
       const history = historyRef.current;
+      const centerIndex = Math.floor(MAX_POINTS / 2);
 
-      const last = history[history.length - 1] ?? heightValue;
-      const blended = last * 0.7 + heightValue * 0.3;
+      // use CENTER as previous value
+      const last = history[centerIndex] ?? heightValue;
+      // smooth toward new audio value
+      const blended = last * (1 - SMOOTHING) + heightValue * SMOOTHING;
 
-      history.shift();
-      history.push(blended);
+      // shift LEFT side (past moves left)
+      for (let i = 0; i < centerIndex; i++) {
+        history[i] = history[i + 1];
+      }
 
-      // cart calulation
-      const centerIndex = Math.floor(history.length / 2);
+      // // shift RIGHT side (future moves right)
+      // for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
+      //   history[i] = history[i - 1];
+      // }
+
+      // inject NEW data at center
+      history[centerIndex] = blended;
+
+      // read center
       const centerValue = history[centerIndex];
 
-      const cartX =
-        ((centerIndex - centerIndex) / (MAX_POINTS / 2)) * (width / 2) +
-        width / 2;
+      const cartX = width / 2;
 
-      const baseline = heightCanvas / 2;
-      const amplitude = centerValue * heightCanvas * 0.3;
+      const baseline = heightCanvas / 2 + BASELINE_OFFSET;
+      const amplitude = centerValue * heightCanvas * AMPLITUDE;
       const cartY = baseline - amplitude;
 
       // draw line
@@ -101,8 +125,8 @@ export default function Canvas({ audioEngine, volume }) {
         const x =
           ((i - centerIndex) / (MAX_POINTS / 2)) * (width / 2) + width / 2;
 
-        const baseline = heightCanvas / 2;
-        const amplitude = v * heightCanvas * 0.3; // control intensity
+        //const baseline = heightCanvas / 2;
+        const amplitude = v * heightCanvas * AMPLITUDE;
         const y = baseline - amplitude;
 
         if (i === 0) {
@@ -133,7 +157,7 @@ export default function Canvas({ audioEngine, volume }) {
       cancelAnimationFrame(animationId);
       window.removeEventListener("resize", resize);
     };
-  }, [audioEngine]);
+  }, [audioEngine, controls]);
 
   return <canvas ref={canvasRef} className="w-full h-full block" />;
 }
