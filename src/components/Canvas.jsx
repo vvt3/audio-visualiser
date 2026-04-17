@@ -91,14 +91,12 @@ export default function Canvas({ audioEngine, controls }) {
       while (speedRef.current >= 1) {
         // LEFT
         for (let i = 0; i < centerIndex; i++) {
-          //history[i] = history[i + 1];
-          history[i] = 1 / history[i + 1];
+          history[i] = history[i + 1];
         }
 
         // RIGHT
         for (let i = MAX_POINTS - 1; i > centerIndex; i--) {
-          //history[i] = history[i - 1];
-          history[i] = history[i + 1]; // Offscreen
+          history[i] = history[i - 1];
         }
 
         speedRef.current -= 1;
