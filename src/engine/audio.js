@@ -1,147 +1,128 @@
 export async function createAudioEngine(file) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    let sourceIdCounter = 0 // Delete later
+  const arrayBuffer = await file.arrayBuffer();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
 
-    const arrayBuffer = await file.arrayBuffer()
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.value = 1;
 
-    const analyser = audioCtx.createAnalyser()
-    analyser.fftSize = 256
+  let currentSource = null;
+  let startTime = 0;
+  let pauseTime = 0;
+  let isPlaying = false;
+  let isStopping = false; // for pausing
 
-    const gainNode = audioCtx.createGain()
-    gainNode.gain.value = 1
+  const createSource = () => {
+    const newSource = audioCtx.createBufferSource();
+    newSource.buffer = audioBuffer;
 
-    let currentSource = null
-    let startTime = 0
-    let pauseTime = 0
-    let isPlaying = false
+    newSource.connect(analyser);
+    analyser.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
 
-    const createSource = () => {
-        const newSource = audioCtx.createBufferSource()
-        newSource.buffer = audioBuffer
-        
-        newSource._id = ++sourceIdCounter // delete
+    return newSource;
+  };
 
-        newSource.connect(analyser)
-        analyser.connect(gainNode)
-        gainNode.connect(audioCtx.destination)
-
-        console.log("Created source:", newSource._id)
-
-        return newSource
+  const play = () => {
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
     }
 
-    const play = () => {
-        if (audioCtx.state === "suspended") {
-            audioCtx.resume()
-        }
-        if (currentSource) {
-            try {
-            currentSource.stop()
-            } catch {}
-        }
+    currentSource = createSource();
 
-        console.log("PLAY Clicked")
+    const offset = pauseTime || 0; // if pause is NaN, etc
 
-        currentSource = createSource()
+    // resume from pauseTime
+    startTime = audioCtx.currentTime - offset;
 
-        console.log("Playing source:", currentSource._id, "at offset:", pauseTime)
+    currentSource.start(0, offset);
 
-        const offset = pauseTime || 0 // if pause is NaN, etc
-        // resume from pauseTime
-        startTime = audioCtx.currentTime - offset
-        try {
-            currentSource.start(0, offset)
-        } catch (e) {
-            console.log("Playing song failed: ", e)
-            currentSource.start(0)
-            startTime = audioCtx.currentTime
-        }
+    isPlaying = true;
 
-        isPlaying = true
-        console.log("AudioContext state:", audioCtx.state)
-        currentSource.onended = () => {
-            console.log("Source ended:", currentSource?._id)
-            isPlaying = false
-            pauseTime = 0
-        }
+    currentSource.onended = () => {
+      isPlaying = false;
+      if (!isStopping) {
+        // only reset if track naturally ended
+        pauseTime = 0;
+      }
+      isStopping = false;
+    };
+  };
+
+  const pause = () => {
+    if (!currentSource) return;
+
+    isStopping = true;
+
+    try {
+      currentSource.stop();
+    } catch {}
+
+    // calculate how far we got
+    const elapsed = audioCtx.currentTime - startTime;
+    //pauseTime = Math.max(0, audioCtx.currentTime - startTime);
+    pauseTime = Math.max(0, Math.min(elapsed, audioBuffer.duration));
+
+    isPlaying = false;
+    currentSource = null;
+  };
+
+  const getFrequencyData = () => {
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteFrequencyData(data);
+    return data;
+  };
+
+  const setVolume = (v) => {
+    gainNode.gain.value = v;
+  };
+
+  const destroy = () => {
+    if (currentSource) {
+      try {
+        currentSource.stop();
+      } catch {}
     }
 
-    const pause = () => {
+    // Reset Settings
+    currentSource = null;
+    pauseTime = 0;
+    startTime = 0;
+    isPlaying = false;
 
-        console.log("PAUSE clicked")
+    try {
+      audioCtx.close();
+    } catch {}
+  };
 
-        if (!currentSource) return
-
-        try {
-            currentSource.stop()
-        } catch {}
-
-        console.log("Stopping source:", currentSource._id)
-
-        // calculate how far we got
-        //pauseTime = audioCtx.currentTime - startTime
-        pauseTime = Math.max(0, audioCtx.currentTime - startTime)
-        isPlaying = false
-        currentSource = null
+  const restart = () => {
+    if (currentSource) {
+      try {
+        currentSource.stop();
+      } catch {}
     }
 
-    const getFrequencyData = () => {
-        const data = new Uint8Array(analyser.frequencyBinCount)
-        analyser.getByteFrequencyData(data)
-        return data
-    }
+    pauseTime = 0;
+    isPlaying = false;
+    currentSource = null;
 
-    const setVolume = (v) => {
-        gainNode.gain.value = v
-    }
+    play(); // start fresh from 0
+  };
 
-    // Remove old engine
-    const destroy = () => {
-        if (currentSource) {
-            try {
-            currentSource.stop()
-            } catch {}
-        }
-
-        // Reset Settings
-        pauseTime = 0
-        startTime = 0
-        isPlaying = false
-        currentSource = null
-
-        try {
-            audioCtx.close()
-        } catch {}
-    }
-
-    // Restart button
-    const restart = () => {
-        if (currentSource) {
-            try {
-                currentSource.stop()
-            } catch {}
-        }
-
-        pauseTime = 0
-        isPlaying = false
-        currentSource = null
-
-        play() // start fresh from 0
-    }
-
-    return {
-        audioCtx,
-        audioBuffer,
-        analyser,
-        gainNode,
-        play,
-        pause,
-        getFrequencyData,
-        setVolume,
-        destroy,
-        restart
-    }
+  return {
+    audioCtx,
+    audioBuffer,
+    analyser,
+    gainNode,
+    play,
+    pause,
+    getFrequencyData,
+    setVolume,
+    destroy,
+    restart,
+  };
 }
