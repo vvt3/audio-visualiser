@@ -60,7 +60,9 @@ function App() {
         <MusicInput onFileSelect={handleFileSelect} />
 
         <div className="w-[90%] max-w-4xl h-[90%] bg-black border border-gray-800 rounded-xl overflow-hidden">
-          <p className="text-sm flex items-center">{file ? file.name : ""}</p>
+          <p className="h-8 text-sm flex items-center justify-center bg-stone-700">
+            {file ? file.name : ""}
+          </p>
           <Canvas audioEngine={audioEngine} controls={controls} />
         </div>
 
@@ -101,7 +103,7 @@ function App() {
       <footer className="h-16 flex items-center justify-center gap-2 border-t border-gray-800 bg-zinc-600">
         <div className="flex flex-row items-center justify-center gap-2 w-64 mt-4">
           <label>
-            Realism: {controls.smoothing.toFixed(2)}
+            Smoothing: {controls.smoothing.toFixed(2)}
             <input
               type="range"
               min="0.01"
@@ -136,7 +138,7 @@ function App() {
             <input
               type="range"
               min="0.1"
-              max="1"
+              max="2"
               step="0.05"
               value={controls.amplitude}
               onChange={(e) =>
@@ -152,9 +154,9 @@ function App() {
             Baseline: {controls.baseline.toFixed(2)}
             <input
               type="range"
-              min="-5"
-              max="5"
-              step="0.1"
+              min="0"
+              max="8"
+              step="0.01"
               value={controls.baseline}
               onChange={(e) =>
                 setControls((c) => ({
