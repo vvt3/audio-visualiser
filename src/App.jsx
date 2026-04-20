@@ -1,5 +1,6 @@
 import Canvas from "./components/Canvas";
 import MusicInput from "./components/MusicInput";
+import Cart from "./components/Cart";
 import { useState, useEffect } from "react";
 import { createAudioEngine } from "./engine/audio";
 
@@ -8,6 +9,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [file, setFile] = useState(null);
   const [volume, setVolume] = useState(1);
+  const [cartState, setCartState] = useState(null);
   const [controls, setControls] = useState({
     smoothing: 0.2,
     shape: 0.3,
@@ -49,10 +51,14 @@ function App() {
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-600 text-white">
       {/* Header */}
-      <header className="h-14 flex items-center justify-center px-4 border-b border-gray-800 p-5">
-        <h1 className="text-3xl font-semibold flex items-center">
-          🎢 Audio Rollercoaster
-        </h1>
+      <header className="h-16 flex flex-row items-center justify-center px-4 border-b border-gray-800 p-5">
+        <img src="../logo.svg" alt="logo-img" />
+        <div className="flex flex-col">
+          <h1 className="text-3xl font-semibold flex items-center">
+            Rollergen
+          </h1>
+          <p> A Procedural Rollercoaster Generator</p>
+        </div>
       </header>
 
       {/* Main Canvas */}
@@ -63,7 +69,14 @@ function App() {
           <p className="h-8 text-sm flex items-center justify-center bg-stone-700">
             {file ? file.name : ""}
           </p>
-          <Canvas audioEngine={audioEngine} controls={controls} />
+          <div>
+            <Canvas
+              audioEngine={audioEngine}
+              controls={controls}
+              onCartUpdate={setCartState}
+            />
+            <Cart cart={cartState} />
+          </div>
         </div>
 
         {/* Controls */}

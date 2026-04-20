@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 
-export default function Canvas({ audioEngine, controls }) {
+export default function Canvas({ audioEngine, controls, onCartUpdate }) {
   const canvasRef = useRef(null);
 
   const historyRef = useRef([]);
   const tiltRef = useRef(0);
   const speedRef = useRef(0);
   const smoothSpeedRef = useRef(0);
+  const wheelRotationRef = useRef(0);
   const particlesRef = useRef([]);
 
   // CONTROLS
@@ -132,6 +133,17 @@ export default function Canvas({ audioEngine, controls }) {
 
       const baseline = height / 2 + BASELINE_OFFSET;
       const amplitude = centerValue * height * AMPLITUDE;
+
+      const slopeFactor = Math.abs(right - left);
+      wheelRotationRef.current +=
+        smoothSpeedRef.current * (1 + slopeFactor * 2) * 10;
+
+      onCartUpdate?.({
+        x: width / 2,
+        y: baseline - amplitude,
+        angle: tiltRef.current,
+        wheelRotation: wheelRotationRef.current,
+      });
 
       return {
         x: width / 2,
