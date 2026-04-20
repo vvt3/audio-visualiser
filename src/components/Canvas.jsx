@@ -43,7 +43,7 @@ export default function Canvas({ audioEngine, controls }) {
     resize();
     window.addEventListener("resize", resize);
 
-    // ---------------- HELPERS ----------------
+    // ---------------- HELPER FUNCTIONS -------
 
     function getDimensions() {
       const dpr = window.devicePixelRatio || 1;
@@ -247,6 +247,7 @@ export default function Canvas({ audioEngine, controls }) {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        //ctx.lineTo(p.x, p.y)
         ctx.fillStyle = "white";
         ctx.fill();
       });
