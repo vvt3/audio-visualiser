@@ -1,7 +1,7 @@
 export default function Cart({ cart }) {
   if (!cart) return null;
 
-  const { x, y, angle, wheelRotation = 0 } = cart;
+  const { x = 0, y = 0, angle, wheelRotation = 0 } = cart;
 
   const SCALE = 0.4; // make it smaller
 
@@ -13,9 +13,10 @@ export default function Cart({ cart }) {
         top: y,
         transform: `
             translate(${x}, ${y})
+            console.print("x,y is: ", x, ", ", y);
             rotate(${angle})
             scale(${SCALE})
-            translate(-63.5, -44)
+            translate(-63.5, 44)
         `,
         pointerEvents: "none",
       }}
